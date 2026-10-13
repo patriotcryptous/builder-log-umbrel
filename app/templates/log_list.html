@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block subtitle %}
+<p class="subtitle">{{ total }} entr{{ 'y' if total == 1 else 'ies' }} · {{ hours_fmt(sum_hours) }} hours shown</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn btn-primary" href="/log/new">{{ icon('plus') }}New entry</a>
+<a class="btn" href="/export/entries.csv">{{ icon('download') }}CSV</a>
+{% endblock %}
+
+{% block content %}
+
+<details class="panel" {% if filters['q'] or filters['kit'] or filters['contributor'] or filters['tag'] or filters['start'] or filters['end'] %}open{% endif %}>
+  <summary>Filter entries</summary>
+  <div class="panel-body">
+    <form method="get" action="/log">
+      <div class="field-row">
+        <div class="field">
+          <label for="f-q">Words in title or notes</label>
+          <input type="search" id="f-q" name="q" value="{{ filters['q'] }}" placeholder="rivet, canopy, spar">
+        </div>
+        <div class="field">
+          <label for="f-kit">Kit</label>
+          <select id="f-kit" name="kit">
+            <option value="">Any</option>
+            {% for kit in all_kits %}
+            <option value="{{ kit['id'] }}" {% if filters['kit'] == kit['id'] %}selected{% endif %}>{{ kit['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-contributor">Contributor</label>
+          <select id="f-contributor" name="contributor">
+            <option value="">Anyone</option>
+            {% for person in all_contributors %}
+            <option value="{{ person['id'] }}" {% if filters['contributor'] == person['id'] %}selected{% endif %}>{{ person['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-tag">Tag</label>
+          <select id="f-tag" name="tag">
+            <option value="">Any</option>
+            {% for tag in all_tags %}
+            <option value="{{ tag['name'] }}" {% if filters['tag'] == tag['name'] %}selected{% endif %}>{{ tag['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-start">From</label>
+          <input type="date" id="f-start" name="start" value="{{ filters['start'] }}">
+        </div>
+        <div class="field">
+          <label for="f-end">To</label>
+          <input type="date" id="f-end" name="end" value="{{ filters['end'] }}">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" type="submit">Apply</button>
+        <a class="btn" href="/log">Clear</a>
+      </div>
+    </form>
+  </div>
+</details>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>What</th><th>Kit / section</th>
+          <th class="num">Hours</th><th class="num">Files</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in rows %}
+        <tr>
+          <td class="nowrap mono">{{ entry['work_date'] }}</td>
+          <td>
+            <a href="/log/{{ entry['id'] }}"><strong>{{ entry['title'] }}</strong></a>
+            {% if entry['notes'] %}<div class="meta muted small">{{ entry['notes'][:110] }}{% if entry['notes']|length > 110 %}…{% endif %}</div>{% endif %}
+          </td>
+          <td class="small">
+            {{ entry['kit_name'] or '—' }}
+            {%- if entry['section_name'] %}<br><span class="muted">{{ entry['section_name'] }}</span>{% endif %}
+          </td>
+          <td class="num">{{ hours_fmt(entry['hours']) }}</td>
+          <td class="num small">
+            {% if entry['photo_count'] %}{{ entry['photo_count'] }}📷{% endif %}
+            {% if entry['doc_count'] %}{{ entry['doc_count'] }}📄{% endif %}
+            {% if not entry['photo_count'] and not entry['doc_count'] %}—{% endif %}
+          </td>
+          <td class="right"><a class="btn btn-sm" href="/log/{{ entry['id'] }}/edit">{{ icon('pencil') }}</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No entries match. <a href="/log/new">Add one.</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}<a class="btn btn-sm" href="/log?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page - 1 }}">Previous</a>{% endif %}
+  <span class="muted small">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a class="btn btn-sm" href="/log?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page + 1 }}">Next</a>{% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

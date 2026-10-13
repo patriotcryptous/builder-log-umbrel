@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block subtitle %}
+<p class="subtitle">
+  {{ entry['work_date'] }}
+  {%- if entry['kit_name'] %} · {{ entry['kit_name'] }}{% endif %}
+  {%- if entry['section_name'] %} · {{ entry['section_name'] }}{% endif %}
+  · {{ hours_fmt(entry['hours']) }} hours
+</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn" href="/log">{{ icon('back') }}Build log</a>
+<a class="btn btn-primary" href="/log/{{ entry['id'] }}/edit">{{ icon('pencil') }}Edit</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Notes</h2>
+    {% if entry['notes'] %}
+      <p class="notes">{{ entry['notes'] }}</p>
+    {% else %}
+      <p class="muted">No notes on this entry.</p>
+    {% endif %}
+    {% if tags %}
+    <div class="chips">
+      {% for tag in tags %}<a class="chip" href="/log?tag={{ tag['name']|urlencode }}">{{ tag['name'] }}</a>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Details</h2>
+    <dl class="kv">
+      <dt>Date</dt><dd>{{ entry['work_date'] }}</dd>
+      <dt>Session hours</dt><dd>{{ hours_fmt(entry['hours']) }}</dd>
+      <dt>Kit</dt><dd>{{ entry['kit_name'] or '—' }}</dd>
+      <dt>Section</dt><dd>{{ entry['section_name'] or '—' }}</dd>
+      <dt>Logged</dt><dd class="small muted">{{ entry['created_at']|replace('T', ' ') }} UTC</dd>
+      {% if people %}
+      <dt>Worked on by</dt>
+      <dd>
+        {% for person in people %}
+        <span class="badge">{{ person['name'] }}{% if person['hours'] %} · {{ hours_fmt(person['hours']) }} h{% endif %}</span>
+        {% endfor %}
+      </dd>
+      {% endif %}
+    </dl>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Photos</h2>
+    <span class="muted small">{{ photos|length }}</span>
+  </div>
+  {% if photos %}
+  <div class="gallery">
+    {% for photo in photos %}
+    <a class="shot" href="/photos/{{ photo['id'] }}">
+      <img src="/thumbs/{{ photo['stored_name'] }}" alt="{{ photo['caption'] or photo['original_name'] }}" loading="lazy">
+      <span class="shot-meta">
+        <strong>{{ photo['caption'] or photo['original_name'] }}</strong>
+        {{ human_size(photo['size_bytes']) }}
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No photos on this entry yet.</p>
+  {% endif %}
+</div>
+
+{% if docs %}
+<div class="card">
+  <h2>Documents</h2>
+  <div class="stack">
+    {% for doc in docs %}
+    <div class="row-item">
+      <div>
+        <strong><a href="/files/{{ doc['stored_name'] }}">{{ doc['original_name'] }}</a></strong>
+        <div class="meta">{{ doc['doc_type'] or doc['mime'] }} · {{ human_size(doc['size_bytes']) }}</div>
+      </div>
+      <a class="btn btn-sm" href="/files/{{ doc['stored_name'] }}?download=1">{{ icon('download') }}Download</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Add more files</h2>
+  <form method="post" action="/log/{{ entry['id'] }}/upload" enctype="multipart/form-data" class="inline-form">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field">
+      <label for="attachments">Photos or documents</label>
+      <input type="file" id="attachments" name="attachments" multiple>
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('upload') }}Upload</button>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.db
+*.db-wal
+*.db-shm
+hangar-builder-log/data/*
+!hangar-builder-log/data/.gitkeep
+.DS_Store
+screenshots/

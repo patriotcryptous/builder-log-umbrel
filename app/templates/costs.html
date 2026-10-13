@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block subtitle %}
+<p class="subtitle">
+  {{ money(total) }} spent in total{% if budget %} of a {{ money(budget) }} budget ({{ budget_percent }}%){% endif %}
+</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn" href="/export/costs.csv">{{ icon('download') }}CSV</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-4">
+  <div class="card stat">
+    <span class="stat-label">Total spent</span>
+    <span class="stat-value">{{ money(total) }}</span>
+    <span class="stat-note">{{ rows|length }} line{{ '' if rows|length == 1 else 's' }} shown</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Shown by filter</span>
+    <span class="stat-value">{{ money(shown) }}</span>
+    <span class="stat-note">of {{ money(total) }}</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Budget</span>
+    <span class="stat-value">{% if budget %}{{ money(budget) }}{% else %}—{% endif %}</span>
+    <span class="stat-note">{% if budget %}{{ money(budget - total) }} left{% else %}set one in settings{% endif %}</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Against budget</span>
+    <span class="stat-value">{{ budget_percent if budget else 0 }}%</span>
+    {% if budget %}<progress class="{{ 'done' if budget_percent <= 100 else '' }}" value="{{ budget_percent if budget_percent < 100 else 100 }}" max="100">{{ budget_percent }}%</progress>{% endif %}
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>By category</h2><span class="muted small">dollars</span></div>
+    {{ category_chart|safe }}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>By kit</h2><span class="muted small">dollars</span></div>
+    {{ kit_chart|safe }}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>Spending by month</h2><span class="muted small">last 8 months</span></div>
+  {{ month_chart|safe }}
+</div>
+
+<div class="card">
+  <h2>Add a cost</h2>
+  <form method="post" action="/costs/add" enctype="multipart/form-data">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field-row">
+      <div class="field">
+        <label for="spent_on">Date</label>
+        <input type="date" id="spent_on" name="spent_on" value="{{ today }}">
+      </div>
+      <div class="field">
+        <label for="amount">Amount</label>
+        <input type="text" id="amount" name="amount" inputmode="decimal" placeholder="1249.95" required>
+      </div>
+      <div class="field">
+        <label for="vendor">Vendor</label>
+        <input type="text" id="vendor" name="vendor" maxlength="120" placeholder="Van's Aircraft">
+      </div>
+      <div class="field">
+        <label for="category">Category</label>
+        <select id="category" name="category">
+          {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="c-kit">Kit</label>
+        <select id="c-kit" name="kit_id">
+          <option value="">—</option>
+          {% for kit in all_kits %}<option value="{{ kit['id'] }}">{{ kit['name'] }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="receipt">Receipt</label>
+        <input type="file" id="receipt" name="receipt">
+      </div>
+    </div>
+    <div class="field">
+      <label for="description">Description</label>
+      <input type="text" id="description" name="description" maxlength="300" placeholder="Empennage kit deposit">
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('plus') }}Add cost</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Spending</h2>
+    <form method="get" action="/costs" class="inline-form">
+      <div class="field">
+        <label for="f-category">Category</label>
+        <select id="f-category" name="category">
+          <option value="">Any</option>
+          {% for cat in categories %}
+          <option value="{{ cat }}" {% if filters['category'] == cat %}selected{% endif %}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-kit">Kit</label>
+        <select id="f-kit" name="kit">
+          <option value="">Any</option>
+          {% for kit in all_kits %}
+          <option value="{{ kit['id'] }}" {% if filters['kit'] == kit['id'] %}selected{% endif %}>{{ kit['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-year">Year</label>
+        <select id="f-year" name="year">
+          <option value="">Any</option>
+          {% for year in years %}
+          <option value="{{ year }}" {% if filters['year'] == year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-sm" type="submit">Filter</button>
+    </form>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Date</th><th>Vendor</th><th>Category</th><th>Description</th><th>Kit</th><th class="num">Amount</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for cost in rows %}
+        <tr>
+          <td class="mono nowrap">{{ cost['spent_on'] }}</td>
+          <td>{{ cost['vendor'] or '—' }}</td>
+          <td><span class="badge">{{ cost['category'] }}</span></td>
+          <td>
+            {{ cost['description'] }}
+            {% if cost['receipt_name'] %}
+            <a class="small" href="/files/{{ cost['receipt_name'] }}">receipt</a>
+            {% endif %}
+          </td>
+          <td class="small">{{ cost['kit_name'] or '—' }}</td>
+          <td class="num">{{ money(cost['amount_cents']) }}</td>
+          <td class="right">
+            <form method="post" action="/costs/{{ cost['id'] }}/delete">
+              {{ csrf(csrf_token, csrf_field) }}
+              <button class="btn btn-sm btn-danger" type="submit">{{ icon('trash') }}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="muted">No costs recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if rows %}
+      <tfoot>
+        <tr><th colspan="5" class="right">Shown</th><th class="num">{{ money(shown) }}</th><th></th></tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+
+{% endblock %}

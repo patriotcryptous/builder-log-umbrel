@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block subtitle %}
+<p class="subtitle">{{ rows|length }} document{{ '' if rows|length == 1 else 's' }} · {{ usage['human'] }} of storage used</p>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <h2>Upload documents</h2>
+  <p class="muted small">
+    Plans and instructions you already own, invoices, packing lists, service bulletins,
+    weight and balance sheets, registration paperwork — anything you want kept with the build.
+  </p>
+  <form method="post" action="/documents/upload" enctype="multipart/form-data">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field-row">
+      <div class="field">
+        <label for="documents">Files</label>
+        <input type="file" id="documents" name="documents" multiple required>
+      </div>
+      <div class="field">
+        <label for="doc_type">Type</label>
+        <select id="doc_type" name="doc_type">
+          {% for kind in doc_types %}<option value="{{ kind }}">{{ kind }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="caption">Label</label>
+        <input type="text" id="caption" name="caption" maxlength="300" placeholder="RV-12iS wing packing list">
+      </div>
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('upload') }}Upload</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Document hangar</h2>
+    <form method="get" action="/documents" class="inline-form">
+      <div class="field">
+        <label for="f-q">Search</label>
+        <input type="search" id="f-q" name="q" value="{{ q }}" placeholder="invoice, bulletin">
+      </div>
+      <button class="btn btn-sm" type="submit">Find</button>
+      {% if q %}<a class="btn btn-sm" href="/documents">Clear</a>{% endif %}
+    </form>
+  </div>
+
+  {% if rows %}
+  <div class="stack">
+    {% for doc in rows %}
+    <details class="panel">
+      <summary>
+        <span>
+          {{ icon('file') }} {{ doc['caption'] or doc['original_name'] }}
+          {% if doc['doc_type'] %}<span class="badge">{{ doc['doc_type'] }}</span>{% endif %}
+        </span>
+        <span class="muted small">{{ human_size(doc['size_bytes']) }}</span>
+      </summary>
+      <div class="panel-body">
+        <p class="muted small">
+          {{ doc['original_name'] }} · {{ doc['mime'] }} · added {{ doc['created_at'][:10] }}
+          {%- if doc['entry_title'] %} · from “{{ doc['entry_title'] }}”{% endif %}
+        </p>
+        <div class="btn-row">
+          <a class="btn btn-sm" href="/files/{{ doc['stored_name'] }}">Open</a>
+          <a class="btn btn-sm" href="/files/{{ doc['stored_name'] }}?download=1">{{ icon('download') }}Download</a>
+        </div>
+        <form method="post" action="/documents/{{ doc['id'] }}/save" class="inline-form">
+          {{ csrf(csrf_token, csrf_field) }}
+          <div class="field">
+            <label for="cap_{{ doc['id'] }}">Label</label>
+            <input type="text" id="cap_{{ doc['id'] }}" name="caption" value="{{ doc['caption'] }}" maxlength="300">
+          </div>
+          <div class="field">
+            <label for="type_{{ doc['id'] }}">Type</label>
+            <select id="type_{{ doc['id'] }}" name="doc_type">
+              <option value="">—</option>
+              {% for kind in doc_types %}
+              <option value="{{ kind }}" {% if doc['doc_type'] == kind %}selected{% endif %}>{{ kind }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-sm btn-primary" type="submit">Save</button>
+        </form>
+        <form method="post" action="/documents/{{ doc['id'] }}/delete">
+          {{ csrf(csrf_token, csrf_field) }}
+          <button class="btn btn-sm btn-danger" type="submit">{{ icon('trash') }}Delete</button>
+        </form>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="chart-empty">No documents yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Storage</h2>
+  <dl class="kv">
+    <dt>Files on disk</dt><dd>{{ usage['files'] }}</dd>
+    <dt>Space used</dt><dd>{{ usage['human'] }}</dd>
+    <dt>Where</dt><dd class="mono">/data inside the app, on your Umbrel</dd>
+  </dl>
+</div>
+
+{% endblock %}

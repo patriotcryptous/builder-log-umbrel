@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf, statusbadge %}
+
+{% block subtitle %}
+<p class="subtitle">{{ overall }}% complete overall — the average of your kit percentages</p>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="hero">
+    {{ ring|safe }}
+    <div>
+      <h2>How completion is worked out</h2>
+      <p class="muted small">
+        Set a percentage for each section. A kit's number is the weighted average of its
+        sections, unless you type a percentage for the whole kit, which wins. Raise a
+        section's weight if it is a bigger job than the others.
+      </p>
+      <div class="btn-row">
+        <a class="btn btn-sm" href="/log/new">{{ icon('plus') }}Log work</a>
+        <a class="btn btn-sm" href="/insights">{{ icon('chart') }}Insights</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="post" action="/sections/update">
+  {{ csrf(csrf_token, csrf_field) }}
+  {% for kit in kits %}
+  <div class="card">
+    <div class="card-head">
+      <h2>{{ kit['name'] }} — {{ kit['percent'] }}%</h2>
+      <span>{{ statusbadge(kit['status']) }}</span>
+    </div>
+    <progress class="{{ 'done' if kit['percent'] >= 100 else '' }}" value="{{ kit['percent'] }}" max="100">{{ kit['percent'] }}%</progress>
+    <p class="muted small">
+      {{ hours_fmt(kit['hours']) }} hours logged · {{ money(kit['spent_cents']) }} spent ·
+      {{ kit['sections_done'] }} of {{ kit['sections_total'] }} sections finished
+      {%- if kit['percent_override'] is not none %} · using a manual {{ kit['percent_override'] }}%{% endif %}
+    </p>
+
+    {% if sections_by_kit.get(kit['id']) %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Section</th><th class="num">Percent</th><th class="bar-cell">Progress</th><th class="num">Weight</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for section in sections_by_kit[kit['id']] %}
+          <tr>
+            <td><label class="nowrap" for="percent_{{ section['id'] }}">{{ section['name'] }}</label></td>
+            <td class="num">
+              <input type="number" id="percent_{{ section['id'] }}" name="percent_{{ section['id'] }}"
+                     value="{{ '%g'|format(section['percent']) }}" min="0" max="100" step="5" inputmode="numeric">
+            </td>
+            <td class="bar-cell">
+              <progress class="{{ 'done' if section['percent'] >= 100 else '' }}" value="{{ section['percent'] }}" max="100">{{ section['percent'] }}%</progress>
+            </td>
+            <td class="num">
+              <input type="number" name="weight_{{ section['id'] }}" value="{{ '%g'|format(section['weight']) }}"
+                     min="0.1" max="20" step="0.5" aria-label="Weight for {{ section['name'] }}">
+            </td>
+            <td class="right">
+              <button class="btn btn-sm btn-danger" type="submit" formaction="/sections/{{ section['id'] }}/delete" formmethod="post">{{ icon('trash') }}</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted small">No sections in this kit yet.</p>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+  <div class="btn-row">
+    <button class="btn btn-primary" type="submit">{{ icon('check') }}Save all percentages</button>
+  </div>
+</form>
+
+<div class="card">
+  <h2>Edit a kit</h2>
+  {% for kit in kits %}
+  <details class="panel">
+    <summary>{{ kit['name'] }}</summary>
+    <div class="panel-body">
+      <form method="post" action="/kits/{{ kit['id'] }}/update">
+        {{ csrf(csrf_token, csrf_field) }}
+        <div class="field-row">
+          <div class="field">
+            <label for="kname_{{ kit['id'] }}">Name</label>
+            <input type="text" id="kname_{{ kit['id'] }}" name="name" value="{{ kit['name'] }}">
+          </div>
+          <div class="field">
+            <label for="kstatus_{{ kit['id'] }}">Status</label>
+            <select id="kstatus_{{ kit['id'] }}" name="status">
+              {% for key, label in [('not_started', 'Not started'), ('in_progress', 'In progress'), ('on_hold', 'On hold'), ('complete', 'Complete')] %}
+              <option value="{{ key }}" {% if kit['status'] == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="koverride_{{ kit['id'] }}">Manual percent</label>
+            <input type="number" id="koverride_{{ kit['id'] }}" name="percent_override" min="0" max="100" step="1"
+                   value="{{ '%g'|format(kit['percent_override']) if kit['percent_override'] is not none else '' }}" placeholder="auto">
+            <p class="field-hint">Blank uses the sections.</p>
+          </div>
+          <div class="field">
+            <label for="korder_{{ kit['id'] }}">Order</label>
+            <input type="number" id="korder_{{ kit['id'] }}" name="sort_order" value="{{ loop.index0 }}" min="0" step="1">
+          </div>
+        </div>
+        <div class="field">
+          <label for="knotes_{{ kit['id'] }}">Notes</label>
+          <textarea id="knotes_{{ kit['id'] }}" name="notes">{{ kit['notes'] }}</textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" type="submit">Save kit</button>
+        </div>
+      </form>
+      <form method="post" action="/kits/{{ kit['id'] }}/sections/add">
+        {{ csrf(csrf_token, csrf_field) }}
+        <div class="field-row">
+          <div class="field">
+            <label for="newsec_{{ kit['id'] }}">New section</label>
+            <input type="text" id="newsec_{{ kit['id'] }}" name="name" placeholder="Left flaperon">
+          </div>
+          <div class="field">
+            <label for="newsecw_{{ kit['id'] }}">Weight</label>
+            <input type="number" id="newsecw_{{ kit['id'] }}" name="weight" value="1" min="0.1" step="0.5">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" type="submit">{{ icon('plus') }}Add section to {{ kit['name'] }}</button>
+        </div>
+      </form>
+
+      <form method="post" action="/kits/{{ kit['id'] }}/delete">
+        {{ csrf(csrf_token, csrf_field) }}
+        <p class="muted small">Deleting a kit keeps your log entries; they just lose the kit label.</p>
+        <button class="btn btn-danger btn-sm" type="submit">{{ icon('trash') }}Delete {{ kit['name'] }}</button>
+      </form>
+    </div>
+  </details>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <h2>Add a kit</h2>
+  <form method="post" action="/kits/add">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field-row">
+      <div class="field">
+        <label for="newkit">Kit name</label>
+        <input type="text" id="newkit" name="name" placeholder="Interior" required>
+      </div>
+      <div class="field">
+        <label for="newkitsections">Sections</label>
+        <input type="text" id="newkitsections" name="sections" placeholder="Seats, Upholstery, Trim">
+        <p class="field-hint">Comma separated, optional.</p>
+      </div>
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('plus') }}Add kit</button>
+  </form>
+</div>
+
+{% endblock %}

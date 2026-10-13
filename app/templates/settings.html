@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block content %}
+
+<div class="card">
+  <h2>Project</h2>
+  <form method="post" action="/settings/project">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field-row">
+      <div class="field">
+        <label for="name">Project name</label>
+        <input type="text" id="name" name="name" value="{{ project['name'] }}" maxlength="120" required>
+      </div>
+      <div class="field">
+        <label for="model">Model</label>
+        <input type="text" id="model" name="model" value="{{ project['model'] }}" maxlength="60" placeholder="RV-12iS">
+      </div>
+      <div class="field">
+        <label for="kit_number">Kit number</label>
+        <input type="text" id="kit_number" name="kit_number" value="{{ project['kit_number'] }}" maxlength="60">
+      </div>
+      <div class="field">
+        <label for="n_number">Registration</label>
+        <input type="text" id="n_number" name="n_number" value="{{ project['n_number'] }}" maxlength="16" placeholder="N12345">
+      </div>
+      <div class="field">
+        <label for="builder">Builder</label>
+        <input type="text" id="builder" name="builder" value="{{ project['builder'] }}" maxlength="120">
+      </div>
+      <div class="field">
+        <label for="started_on">Started on</label>
+        <input type="date" id="started_on" name="started_on" value="{{ project['started_on'] }}">
+      </div>
+      <div class="field">
+        <label for="target_hours">Planned hours</label>
+        <input type="text" id="target_hours" name="target_hours" inputmode="decimal"
+               value="{{ '%g'|format(project['target_hours']) if project['target_hours'] else '' }}" placeholder="700">
+        <p class="field-hint">Used for the pace and finish estimates.</p>
+      </div>
+      <div class="field">
+        <label for="budget">Budget</label>
+        <input type="text" id="budget" name="budget" inputmode="decimal"
+               value="{{ '%.2f'|format(project['budget_cents'] / 100) if project['budget_cents'] else '' }}" placeholder="125000">
+      </div>
+    </div>
+    <div class="field">
+      <label for="notes">Notes</label>
+      <textarea id="notes" name="notes" placeholder="Engine choice, avionics plan, who is doing what…">{{ project['notes'] }}</textarea>
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('check') }}Save project</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Contributors</h2>
+  <p class="muted small">
+    Everyone who works on the aircraft with you. Their hours are logged per entry, which
+    gives you a record of who did what — the EAA recommends a second set of eyes on your work.
+  </p>
+  {% if contributors %}
+  <div class="stack">
+    {% for person in contributors %}
+    <div class="row-item">
+      <div>
+        <strong>{{ person['name'] }}</strong>
+        <div class="meta">{{ person['role'] or 'no role set' }}{% if person['notes'] %} · {{ person['notes'] }}{% endif %}</div>
+      </div>
+      <form method="post" action="/settings/contributors/{{ person['id'] }}/delete">
+        {{ csrf(csrf_token, csrf_field) }}
+        <button class="btn btn-sm btn-danger" type="submit">{{ icon('trash') }}Remove</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">No one listed yet.</p>
+  {% endif %}
+
+  <form method="post" action="/settings/contributors/add" class="inline-form">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field">
+      <label for="c-name">Name</label>
+      <input type="text" id="c-name" name="name" maxlength="80" placeholder="Dad" required>
+    </div>
+    <div class="field">
+      <label for="c-role">Role</label>
+      <input type="text" id="c-role" name="role" maxlength="80" placeholder="Co-builder">
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('plus') }}Add</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Export</h2>
+  <p class="muted small">Everything here is generated on demand from your own data.</p>
+  <div class="btn-row">
+    <a class="btn" href="/export/entries.csv">{{ icon('download') }}Log entries CSV</a>
+    <a class="btn" href="/export/inventory.csv">{{ icon('download') }}Inventory CSV</a>
+    <a class="btn" href="/export/costs.csv">{{ icon('download') }}Costs CSV</a>
+    <a class="btn" href="/export/builder-log.json">{{ icon('download') }}Everything as JSON</a>
+    <a class="btn" href="/export/photos.zip">{{ icon('download') }}Photos ZIP</a>
+    <a class="btn btn-primary" href="/export/backup.zip">{{ icon('download') }}Full backup ZIP</a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Printable builder log</h2>
+  <p class="muted small">
+    A PDF of the whole log, for your own records or to hand to a DAR at inspection time.
+  </p>
+  <form method="get" action="/export/report.pdf">
+    <div class="field-row">
+      <div class="field">
+        <label for="size">Paper</label>
+        <select id="size" name="size">
+          <option value="letter">Letter</option>
+          <option value="a4">A4</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="photos">Photos</label>
+        <select id="photos" name="photos">
+          <option value="1">Include photos</option>
+          <option value="0">Text only</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="inventory">Inventory</label>
+        <select id="inventory" name="inventory">
+          <option value="0">Leave out</option>
+          <option value="1">Append inventory</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="costs">Costs</label>
+        <select id="costs" name="costs">
+          <option value="0">Leave out</option>
+          <option value="1">Append costs</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('download') }}Build the PDF</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Import</h2>
+  <p class="muted small">
+    Bring in work you already logged elsewhere. A CSV exported from the EAA Builders Log,
+    MyKitLog, KitFlight or a spreadsheet works — date, title, notes, hours and kit columns
+    are matched loosely. Entries are added, never replaced, so import once.
+  </p>
+  <form method="post" action="/settings/import/entries" enctype="multipart/form-data" class="inline-form">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field">
+      <label for="file">Log entries CSV</label>
+      <input type="file" id="file" name="file" accept=".csv,text/csv" required>
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('upload') }}Import entries</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Restore a backup</h2>
+  <p class="muted small">
+    Replaces everything in this app with the contents of a backup ZIP made here. Download a
+    fresh backup first if you are not sure.
+  </p>
+  <form method="post" action="/settings/restore" enctype="multipart/form-data" class="inline-form">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field">
+      <label for="backup">Backup ZIP</label>
+      <input type="file" id="backup" name="backup" accept=".zip,application/zip" required>
+    </div>
+    <button class="btn btn-danger" type="submit">{{ icon('upload') }}Restore</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>This instance</h2>
+  <dl class="kv">
+    <dt>Log entries</dt><dd>{{ counts['entries'] }}</dd>
+    <dt>Photos</dt><dd>{{ counts['photos'] }}</dd>
+    <dt>Documents</dt><dd>{{ counts['documents'] }}</dd>
+    <dt>Inventory lines</dt><dd>{{ counts['inventory'] }}</dd>
+    <dt>Cost lines</dt><dd>{{ counts['costs'] }}</dd>
+    <dt>Kits</dt><dd>{{ counts['kits'] }}</dd>
+    <dt>Storage used</dt><dd>{{ usage['human'] }} across {{ usage['files'] }} file(s)</dd>
+    <dt>Version</dt><dd>{{ version }}</dd>
+    <dt>Outbound connections</dt><dd>None. Nothing in this app contacts the internet.</dd>
+  </dl>
+  <div class="btn-row">
+    <form method="post" action="/settings/thumbs">
+      {{ csrf(csrf_token, csrf_field) }}
+      <button class="btn btn-sm" type="submit">Rebuild photo thumbnails</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Reset the kit list</h2>
+  <p class="muted small">
+    Deletes every kit and section and puts back the default Van's layout — empennage,
+    wings, fuselage, finish, powerplant, avionics and final assembly. Log entries, photos,
+    inventory and costs are kept, but they lose their kit labels.
+  </p>
+  <form method="post" action="/settings/reset-kits" class="inline-form">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field">
+      <label for="confirm">Type RESET to confirm</label>
+      <input type="text" id="confirm" name="confirm" placeholder="RESET">
+    </div>
+    <button class="btn btn-danger" type="submit">Reset kits</button>
+  </form>
+</div>
+
+{% endblock %}

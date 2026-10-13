@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block subtitle %}
+<p class="subtitle">
+  {% if first %}{{ first }} to {{ last }} · {{ span_days }} days{% else %}Log some work to see trends{% endif %}
+</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn" href="/export/builder-log.json">{{ icon('download') }}JSON</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-4">
+  <div class="card stat">
+    <span class="stat-label">Total hours</span>
+    <span class="stat-value">{{ hours_fmt(total_hours) }}</span>
+    <span class="stat-note">{% if target %}{{ (total_hours / target * 100)|round(0)|int }}% of {{ hours_fmt(target) }} planned{% else %}no target set{% endif %}</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Sessions</span>
+    <span class="stat-value">{{ sessions }}</span>
+    <span class="stat-note">{{ hours_fmt(avg_session) }} h average</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Days in the shop</span>
+    <span class="stat-value">{{ work_days }}</span>
+    <span class="stat-note">{{ hours_fmt(avg_day) }} h per working day</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Pace</span>
+    <span class="stat-value">{{ hours_fmt(per_week) }}</span>
+    <span class="stat-note">hours per week overall · {{ hours_fmt(pace_30) }} h last 30 days</span>
+  </div>
+</div>
+
+{% if projection %}
+<div class="card">
+  <h2>{{ icon('chart') }} Where this is heading</h2>
+  <dl class="kv">
+    {% if projection.get('by_hours') %}
+    <dt>Finish by hours</dt>
+    <dd>Around <strong>{{ projection['by_hours'] }}</strong>, if you keep up your last 90 days and the build takes {{ hours_fmt(target) }} hours.</dd>
+    {% endif %}
+    {% if projection.get('by_progress') %}
+    <dt>Finish by progress</dt>
+    <dd>Around <strong>{{ projection['by_progress'] }}</strong>, extending the rate your kit percentages have been climbing.</dd>
+    {% endif %}
+  </dl>
+  <p class="muted small">Both are straight-line guesses from your own numbers, not a promise.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-head"><h2>Hours by month</h2><span class="muted small">every month you logged</span></div>
+  {{ month_chart|safe }}
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>Cumulative hours</h2><span class="muted small">how the total has built up</span></div>
+  {{ cumulative_chart|safe }}
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>Hours per kit</h2></div>
+    {{ kit_hours_chart|safe }}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Completion per kit</h2></div>
+    {{ kit_percent_chart|safe }}
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>When you build</h2><span class="muted small">hours by day of week</span></div>
+    {{ weekday_chart|safe }}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Hours by contributor</h2><a class="small" href="/settings">manage</a></div>
+    {{ person_chart|safe }}
+    {% if by_person %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Who</th><th class="num">Hours</th><th class="num">Sessions</th></tr></thead>
+        <tbody>
+          {% for person in by_person %}
+          <tr>
+            <td>{{ person['name'] }}</td>
+            <td class="num">{{ hours_fmt(person['hours']) }}</td>
+            <td class="num">{{ person['sessions'] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Longest sessions</h2>
+    <div class="stack">
+      {% for session in top_sessions %}
+      <div class="row-item">
+        <div>
+          <strong>{{ session['title'] }}</strong>
+          <div class="meta">{{ session['work_date'] }}{% if session['kit_name'] %} · {{ session['kit_name'] }}{% endif %}</div>
+        </div>
+        <span class="badge badge-accent">{{ hours_fmt(session['hours']) }} h</span>
+      </div>
+      {% else %}
+      <p class="muted">Nothing logged yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Money and parts</h2>
+    <dl class="kv">
+      <dt>Spent so far</dt><dd>{{ money(total_cost) }}</dd>
+      <dt>Cost per build hour</dt><dd>${{ '%.2f'|format(cost_per_hour) }}</dd>
+      <dt>Overall completion</dt><dd>{{ overall }}%</dd>
+      <dt>Parts received</dt><dd>{{ inv['received'] }} of {{ inv['total'] }} ({{ inv['percent'] }}%)</dd>
+    </dl>
+    {% if total_cost and overall > 0 %}
+    <p class="muted small">
+      At this rate the finished aircraft lands near
+      <strong>{{ money((total_cost / overall * 100)|round|int) }}</strong> —
+      a rough extrapolation from {{ overall }}% complete.
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

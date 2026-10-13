@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, invbadge %}
+
+{% block subtitle %}
+{% if q or filters['kit'] or filters['start'] or filters['end'] %}
+<p class="subtitle">{{ count }} result{{ '' if count == 1 else 's' }}</p>
+{% else %}
+<p class="subtitle">Across log entries, photo captions and pins, documents, inventory and costs</p>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <form method="get" action="/search">
+    <div class="field-row">
+      <div class="field">
+        <label for="q">Search for</label>
+        <input type="search" id="q" name="q" value="{{ q }}" placeholder="proseal, VS-702, torque" autofocus>
+      </div>
+      <div class="field">
+        <label for="scope">Look in</label>
+        <select id="scope" name="scope">
+          {% for key, label in [('all', 'Everything'), ('entries', 'Log entries'), ('photos', 'Photos'), ('documents', 'Documents'), ('inventory', 'Inventory'), ('costs', 'Costs')] %}
+          <option value="{{ key }}" {% if scope == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="s-kit">Kit (entries)</label>
+        <select id="s-kit" name="kit">
+          <option value="">Any</option>
+          {% for kit in all_kits %}
+          <option value="{{ kit['id'] }}" {% if filters['kit'] == kit['id'] %}selected{% endif %}>{{ kit['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="s-start">From</label>
+        <input type="date" id="s-start" name="start" value="{{ filters['start'] }}">
+      </div>
+      <div class="field">
+        <label for="s-end">To</label>
+        <input type="date" id="s-end" name="end" value="{{ filters['end'] }}">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" type="submit">{{ icon('search') }}Search</button>
+      <a class="btn" href="/search">Clear</a>
+    </div>
+  </form>
+</div>
+
+{% if results['entries'] %}
+<div class="card">
+  <div class="card-head"><h2>Log entries</h2><span class="muted small">{{ results['entries']|length }}</span></div>
+  <div class="stack">
+    {% for entry in results['entries'] %}
+    <div class="row-item">
+      <div>
+        <strong><a href="/log/{{ entry['id'] }}">{{ entry['title'] }}</a></strong>
+        <div class="meta">{{ entry['work_date'] }}{% if entry['kit_name'] %} · {{ entry['kit_name'] }}{% endif %}</div>
+        {% if entry['notes'] %}<div class="meta">{{ entry['notes'][:160] }}{% if entry['notes']|length > 160 %}…{% endif %}</div>{% endif %}
+      </div>
+      <span class="badge">{{ hours_fmt(entry['hours']) }} h</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if results['photos'] %}
+<div class="card">
+  <div class="card-head"><h2>Photos</h2><span class="muted small">{{ results['photos']|length }}</span></div>
+  <div class="gallery">
+    {% for photo in results['photos'] %}
+    <a class="shot" href="/photos/{{ photo['id'] }}">
+      <img src="/thumbs/{{ photo['stored_name'] }}" alt="{{ photo['caption'] or photo['original_name'] }}" loading="lazy">
+      <span class="shot-meta">
+        <strong>{{ photo['caption'] or photo['original_name'] }}</strong>
+        {{ photo['entry_title'] or '' }}
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if results['documents'] %}
+<div class="card">
+  <div class="card-head"><h2>Documents</h2><span class="muted small">{{ results['documents']|length }}</span></div>
+  <div class="stack">
+    {% for doc in results['documents'] %}
+    <div class="row-item">
+      <div>
+        <strong><a href="/files/{{ doc['stored_name'] }}">{{ doc['caption'] or doc['original_name'] }}</a></strong>
+        <div class="meta">{{ doc['doc_type'] or doc['mime'] }}</div>
+      </div>
+      <a class="btn btn-sm" href="/files/{{ doc['stored_name'] }}?download=1">{{ icon('download') }}</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if results['inventory'] %}
+<div class="card">
+  <div class="card-head"><h2>Inventory</h2><span class="muted small">{{ results['inventory']|length }}</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Part</th><th>Description</th><th>Kit</th><th>Where</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for item in results['inventory'] %}
+        <tr>
+          <td class="mono nowrap">{{ item['part_number'] or '—' }}</td>
+          <td>{{ item['description'] }}</td>
+          <td class="small">{{ item['kit_name'] or '—' }}</td>
+          <td class="small">{{ item['location'] or '—' }}</td>
+          <td>{{ invbadge(item['status']) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if results['costs'] %}
+<div class="card">
+  <div class="card-head"><h2>Costs</h2><span class="muted small">{{ results['costs']|length }}</span></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Vendor</th><th>Description</th><th>Kit</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        {% for cost in results['costs'] %}
+        <tr>
+          <td class="mono nowrap">{{ cost['spent_on'] }}</td>
+          <td>{{ cost['vendor'] or '—' }}</td>
+          <td>{{ cost['description'] }}</td>
+          <td class="small">{{ cost['kit_name'] or '—' }}</td>
+          <td class="num">{{ money(cost['amount_cents']) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if (q or filters['kit'] or filters['start'] or filters['end']) and count == 0 %}
+<p class="chart-empty">Nothing matched. Try fewer words, or widen the dates.</p>
+{% endif %}
+
+{% endblock %}

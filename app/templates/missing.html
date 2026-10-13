@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block content %}
+<div class="card">
+  <h2>That {{ what }} is not here</h2>
+  <p class="muted">It may have been deleted, or the link may be wrong.</p>
+  <div class="btn-row">
+    <a class="btn btn-primary" href="/">{{ icon('back') }}Dashboard</a>
+    <a class="btn" href="/log">Build log</a>
+  </div>
+</div>
+{% endblock %}

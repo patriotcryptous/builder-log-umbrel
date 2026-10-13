@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% set action = '/log/' ~ entry['id'] ~ '/edit' if entry else '/log/new' %}
+{% set value = entry if entry else prefill %}
+
+{% block actions %}
+<a class="btn" href="{{ '/log/' ~ entry['id'] if entry else '/log' }}">{{ icon('back') }}Cancel</a>
+{% endblock %}
+
+{% block content %}
+
+{% if from_timer %}
+<p class="flash flash-ok">{{ icon('clock') }}Hours are filled in from the running timer. Saving stops it.</p>
+{% endif %}
+
+<form method="post" action="{{ action }}" enctype="multipart/form-data">
+  {{ csrf(csrf_token, csrf_field) }}
+  {% if from_timer %}<input type="hidden" name="stop_timer" value="1">{% endif %}
+
+  <div class="card">
+    <div class="field-row">
+      <div class="field">
+        <label for="work_date">Date</label>
+        <input type="date" id="work_date" name="work_date" value="{{ value['work_date'] or today }}" required>
+      </div>
+      <div class="field">
+        <label for="hours">Hours</label>
+        <input type="text" id="hours" name="hours" inputmode="decimal"
+               value="{{ '%g'|format(entry['hours']) if entry else value['hours'] }}" placeholder="2.5">
+        <p class="field-hint">Decimal or h:mm — 2.5 or 2:30.</p>
+      </div>
+      <div class="field">
+        <label for="kit_id">Kit</label>
+        <select id="kit_id" name="kit_id">
+          <option value="">—</option>
+          {% for kit in all_kits %}
+          <option value="{{ kit['id'] }}" {% if value['kit_id'] == kit['id'] %}selected{% endif %}>{{ kit['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="section_id">Section</label>
+        <select id="section_id" name="section_id">
+          <option value="">—</option>
+          {% for section in all_sections %}
+          <option value="{{ section['id'] }}" {% if value['section_id'] == section['id'] %}selected{% endif %}>
+            {{ section['kit_name'] }} — {{ section['name'] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="title">What you did</label>
+      <input type="text" id="title" name="title" maxlength="200" required
+             value="{{ entry['title'] if entry else value['title'] }}"
+             placeholder="Deburred and dimpled the left elevator skins">
+    </div>
+
+    <div class="field">
+      <label for="notes">Notes</label>
+      <textarea id="notes" name="notes" placeholder="Torque values, part numbers, snags, what to check next time…">{{ entry['notes'] if entry else '' }}</textarea>
+    </div>
+
+    <div class="field">
+      <label for="tags">Tags</label>
+      <input type="text" id="tags" name="tags" value="{{ entry_tags }}" placeholder="riveting, wiring, rework">
+      <p class="field-hint">Comma separated.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Who worked on it</h2>
+    {% if all_contributors %}
+    <p class="field-hint">Enter each person's hours. Leave blank if they were not involved.</p>
+    <div class="field-row">
+      {% for person in all_contributors %}
+      <div class="field">
+        <label for="contrib_{{ person['id'] }}">{{ person['name'] }}{% if person['role'] %} <span class="muted">({{ person['role'] }})</span>{% endif %}</label>
+        <input type="text" id="contrib_{{ person['id'] }}" name="contrib_{{ person['id'] }}" inputmode="decimal"
+               value="{{ '%g'|format(entry_contributors[person['id']]) if person['id'] in entry_contributors else '' }}"
+               placeholder="hours">
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">No one listed yet. <a href="/settings">Add helpers in settings</a> to track their hours — the EAA suggests a second set of eyes on your work.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Photos and documents</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="photos">Photos</label>
+        <input type="file" id="photos" name="photos" accept="image/*" multiple>
+      </div>
+      <div class="field">
+        <label for="documents">Documents</label>
+        <input type="file" id="documents" name="documents" multiple>
+      </div>
+    </div>
+    <p class="field-hint">JPEG, PNG, WebP, HEIC, PDF, CSV, text, Office files and ZIP, up to 64 MB each.</p>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" type="submit">{{ icon('check') }}{{ 'Save changes' if entry else 'Save entry' }}</button>
+    <a class="btn" href="{{ '/log/' ~ entry['id'] if entry else '/log' }}">Cancel</a>
+  </div>
+</form>
+
+{% if entry %}
+<div class="card">
+  <h2>Delete</h2>
+  <p class="muted small">Removes this entry, its photos and its documents. This cannot be undone.</p>
+  <form method="post" action="/log/{{ entry['id'] }}/delete">
+    {{ csrf(csrf_token, csrf_field) }}
+    <button class="btn btn-danger" type="submit">{{ icon('trash') }}Delete entry</button>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}

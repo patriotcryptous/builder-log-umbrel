@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block subtitle %}
+<p class="subtitle">For logging from your phone in the shop — date, hours, a note and photos</p>
+{% endblock %}
+
+{% block content %}
+
+{% if timer %}
+<p class="flash flash-ok">{{ icon('clock') }}Timer running — {{ hours_fmt(timer_hours) }} hours so far.</p>
+{% endif %}
+
+<form method="post" action="/quick" enctype="multipart/form-data">
+  {{ csrf(csrf_token, csrf_field) }}
+  {% if timer %}<input type="hidden" name="stop_timer" value="1">{% endif %}
+
+  <div class="card">
+    <div class="field">
+      <label for="title">What did you do?</label>
+      <input type="text" id="title" name="title" maxlength="200" required autofocus
+             value="{{ timer['title'] if timer else '' }}" placeholder="Riveted the rudder skins">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="work_date">Date</label>
+        <input type="date" id="work_date" name="work_date" value="{{ today }}">
+      </div>
+      <div class="field">
+        <label for="hours">Hours</label>
+        <input type="text" id="hours" name="hours" inputmode="decimal"
+               value="{{ '%g'|format(timer_hours|round(2)) if timer else '' }}" placeholder="1.5">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="kit_id">Kit</label>
+        <select id="kit_id" name="kit_id">
+          <option value="">—</option>
+          {% for kit in all_kits %}
+          <option value="{{ kit['id'] }}" {% if timer and timer['kit_id'] == kit['id'] %}selected{% endif %}>{{ kit['name'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="section_id">Section</label>
+        <select id="section_id" name="section_id">
+          <option value="">—</option>
+          {% for section in all_sections %}
+          <option value="{{ section['id'] }}" {% if timer and timer['section_id'] == section['id'] %}selected{% endif %}>
+            {{ section['kit_name'] }} — {{ section['name'] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="notes">Notes</label>
+      <textarea id="notes" name="notes" placeholder="Anything worth remembering next session"></textarea>
+    </div>
+    <div class="field">
+      <label for="photos">Photos</label>
+      <input type="file" id="photos" name="photos" accept="image/*" multiple capture="environment">
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('check') }}Save and add another</button>
+  </div>
+</form>
+
+<div class="card">
+  <p class="muted small">
+    Need the full form, with tags and contributor hours? Use <a href="/log/new">New entry</a>.
+  </p>
+</div>
+
+{% endblock %}

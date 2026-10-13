@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block subtitle %}
+<p class="subtitle">{{ rows|length }} photo{{ '' if rows|length == 1 else 's' }}{% if kit_id or q %} matching{% endif %}</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn" href="/export/photos.zip">{{ icon('download') }}Photos ZIP</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <h2>Upload photos</h2>
+  <form method="post" action="/photos/upload" enctype="multipart/form-data">
+    {{ csrf(csrf_token, csrf_field) }}
+    <div class="field-row">
+      <div class="field">
+        <label for="photos">Files</label>
+        <input type="file" id="photos" name="photos" accept="image/*" multiple required>
+      </div>
+      <div class="field">
+        <label for="entry_id">Attach to entry</label>
+        <select id="entry_id" name="entry_id">
+          <option value="">Not attached</option>
+          {% for entry in recent_entries %}
+          <option value="{{ entry['id'] }}">{{ entry['work_date'] }} — {{ entry['title'][:50] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="caption">Caption</label>
+        <input type="text" id="caption" name="caption" maxlength="300" placeholder="Left tank proseal">
+      </div>
+    </div>
+    <button class="btn btn-primary" type="submit">{{ icon('upload') }}Upload</button>
+  </form>
+</div>
+
+<div class="card">
+  <form method="get" action="/photos" class="inline-form">
+    <div class="field">
+      <label for="f-q">Search captions and pins</label>
+      <input type="search" id="f-q" name="q" value="{{ q }}" placeholder="spar, rivet">
+    </div>
+    <div class="field">
+      <label for="f-kit">Kit</label>
+      <select id="f-kit" name="kit">
+        <option value="">Any</option>
+        {% for kit in all_kits %}
+        <option value="{{ kit['id'] }}" {% if kit_id == kit['id'] %}selected{% endif %}>{{ kit['name'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn" type="submit">Filter</button>
+    {% if q or kit_id %}<a class="btn" href="/photos">Clear</a>{% endif %}
+  </form>
+</div>
+
+{% if rows %}
+<div class="gallery">
+  {% for photo in rows %}
+  <a class="shot" href="/photos/{{ photo['id'] }}">
+    <img src="/thumbs/{{ photo['stored_name'] }}" alt="{{ photo['caption'] or photo['original_name'] }}" loading="lazy">
+    {% if photo['pins'] %}<span class="pin-count">{{ photo['pins'] }}</span>{% endif %}
+    <span class="shot-meta">
+      <strong>{{ photo['caption'] or photo['original_name'] }}</strong>
+      {{ photo['work_date'] or '' }}{% if photo['kit_name'] %} · {{ photo['kit_name'] }}{% endif %}
+    </span>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="chart-empty">No photos yet. Upload some above, or add them to a log entry.</p>
+{% endif %}
+
+{% endblock %}

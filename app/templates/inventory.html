@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf, invbadge %}
+
+{% block subtitle %}
+<p class="subtitle">{{ inv['received'] }} of {{ inv['total'] }} lines received · {{ inv['open'] }} still open</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn" href="/export/inventory.csv">{{ icon('download') }}CSV</a>
+{% endblock %}
+
+{% block content %}
+
+{% if inv['total'] %}
+<div class="card">
+  {{ inv['meter']|safe }}
+  <div class="legend">
+    <span><i class="dot dot-ok"></i>Received {{ inv['counts']['received'] }}</span>
+    <span><i class="dot dot-warn"></i>Partial {{ inv['counts']['partial'] }}</span>
+    <span><i class="dot dot-idle"></i>Pending {{ inv['counts']['pending'] }}</span>
+    <span><i class="dot dot-warn"></i>Backordered {{ inv['counts']['backordered'] }}</span>
+    <span><i class="dot dot-bad"></i>Missing {{ inv['counts']['missing'] }}</span>
+    <span><i class="dot dot-bad"></i>Damaged {{ inv['counts']['damaged'] }}</span>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <form method="get" action="/inventory" class="inline-form">
+    <div class="field">
+      <label for="f-q">Search</label>
+      <input type="search" id="f-q" name="q" value="{{ filters['q'] }}" placeholder="part number, bin, note">
+    </div>
+    <div class="field">
+      <label for="f-kit">Kit</label>
+      <select id="f-kit" name="kit">
+        <option value="">Any</option>
+        {% for kit in all_kits %}
+        <option value="{{ kit['id'] }}" {% if filters['kit'] == kit['id'] %}selected{% endif %}>{{ kit['name'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-status">Status</label>
+      <select id="f-status" name="status">
+        <option value="">Any</option>
+        {% for status in statuses %}
+        <option value="{{ status }}" {% if filters['status'] == status %}selected{% endif %}>{{ status|title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn" type="submit">Filter</button>
+    {% if filters['q'] or filters['kit'] or filters['status'] %}<a class="btn" href="/inventory">Clear</a>{% endif %}
+  </form>
+</div>
+
+<form method="post" action="/inventory/save">
+  {{ csrf(csrf_token, csrf_field) }}
+  <div class="card">
+    <div class="card-head">
+      <h2>Parts</h2>
+      <span class="muted small">{{ rows|length }} shown — check parts off as the crates arrive</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Part</th><th>Description</th><th>Kit</th>
+            <th class="num">Expected</th><th class="num">Received</th>
+            <th>Status</th><th>Where</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in rows %}
+          <tr>
+            <td class="mono nowrap">{{ item['part_number'] or '—' }}</td>
+            <td>
+              {{ item['description'] }}
+              {% if item['notes'] %}<div class="muted small">{{ item['notes'][:80] }}</div>{% endif %}
+            </td>
+            <td class="small">{{ item['kit_name'] or '—' }}</td>
+            <td class="num">{{ '%g'|format(item['qty_expected']) }}</td>
+            <td class="num">
+              <input type="number" name="received_{{ item['id'] }}" value="{{ '%g'|format(item['qty_received']) }}"
+                     min="0" step="1" aria-label="Received quantity for {{ item['part_number'] or item['description'][:30] }}">
+            </td>
+            <td>
+              <select name="status_{{ item['id'] }}" aria-label="Status for {{ item['part_number'] or item['description'][:30] }}">
+                {% for status in statuses %}
+                <option value="{{ status }}" {% if item['status'] == status %}selected{% endif %}>{{ status|title }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <input type="text" name="location_{{ item['id'] }}" value="{{ item['location'] }}" maxlength="60"
+                     aria-label="Location for {{ item['part_number'] or item['description'][:30] }}" placeholder="shelf">
+            </td>
+            <td class="right">
+              <button class="btn btn-sm btn-danger" type="submit" formaction="/inventory/{{ item['id'] }}/delete" formmethod="post">{{ icon('trash') }}</button>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="muted">Nothing here yet. Add a part below, or import a packing list.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if rows %}
+    <div class="btn-row">
+      <button class="btn btn-primary" type="submit">{{ icon('check') }}Save received quantities</button>
+    </div>
+    {% endif %}
+  </div>
+</form>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Add a part</h2>
+    <form method="post" action="/inventory/add">
+      {{ csrf(csrf_token, csrf_field) }}
+      <div class="field-row">
+        <div class="field">
+          <label for="part_number">Part number</label>
+          <input type="text" id="part_number" name="part_number" maxlength="60" placeholder="VS-702">
+        </div>
+        <div class="field">
+          <label for="description">Description</label>
+          <input type="text" id="description" name="description" maxlength="300" placeholder="Vertical stab rear spar">
+        </div>
+        <div class="field">
+          <label for="i-kit">Kit</label>
+          <select id="i-kit" name="kit_id">
+            <option value="">—</option>
+            {% for kit in all_kits %}<option value="{{ kit['id'] }}">{{ kit['name'] }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="qty_expected">Expected</label>
+          <input type="number" id="qty_expected" name="qty_expected" value="1" min="0" step="1">
+        </div>
+        <div class="field">
+          <label for="qty_received">Received</label>
+          <input type="number" id="qty_received" name="qty_received" value="0" min="0" step="1">
+        </div>
+        <div class="field">
+          <label for="location">Where it lives</label>
+          <input type="text" id="location" name="location" maxlength="60" placeholder="Shop shelf B">
+        </div>
+      </div>
+      <div class="field">
+        <label for="notes">Notes</label>
+        <input type="text" id="notes" name="notes" placeholder="Shipped bent, replacement requested">
+      </div>
+      <button class="btn btn-primary" type="submit">{{ icon('plus') }}Add part</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Import a packing list</h2>
+    <p class="muted small">
+      A CSV with columns such as part number, description, quantity and status. Column
+      names are matched loosely, so an export from a spreadsheet usually works as is.
+    </p>
+    <form method="post" action="/inventory/import" enctype="multipart/form-data" class="inline-form">
+      {{ csrf(csrf_token, csrf_field) }}
+      <div class="field">
+        <label for="file">CSV file</label>
+        <input type="file" id="file" name="file" accept=".csv,text/csv" required>
+      </div>
+      <button class="btn btn-primary" type="submit">{{ icon('upload') }}Import</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

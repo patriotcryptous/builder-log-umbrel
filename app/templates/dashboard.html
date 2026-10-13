@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf, statusbadge %}
+
+{% block subtitle %}
+<p class="subtitle">
+  {{ project['model'] }}{% if project['kit_number'] %} · kit {{ project['kit_number'] }}{% endif %}
+  {% if project['started_on'] %} · started {{ project['started_on'] }}{% endif %}
+</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn btn-primary" href="/log/new">{{ icon('plus') }}New entry</a>
+<a class="btn" href="/export/report.pdf">{{ icon('download') }}Builder log PDF</a>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="hero">
+    {{ overall_ring|safe }}
+    <div>
+      <div class="stat-row">
+        <div class="stat">
+          <span class="stat-label">Build hours</span>
+          <span class="stat-value">{{ hours_fmt(total_hours) }}</span>
+          <span class="stat-note">
+            {% if target %}of {{ hours_fmt(target) }} planned{% else %}across {{ total_entries }} sessions{% endif %}
+          </span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Last 30 days</span>
+          <span class="stat-value">{{ hours_fmt(hours_30) }}</span>
+          <span class="stat-note">on {{ days_30 }} day{{ '' if days_30 == 1 else 's' }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Photos</span>
+          <span class="stat-value">{{ total_photos }}</span>
+          <span class="stat-note">documenting the build</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Spent</span>
+          <span class="stat-value">{{ money(total_cost) }}</span>
+          <span class="stat-note">
+            {% if finish_estimate %}on pace for {{ finish_estimate }}{% else %}all categories{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>{{ icon('clock') }} Work timer</h2>
+    {% if timer %}<span class="badge badge-accent">Running</span>{% endif %}
+  </div>
+  {% if timer %}
+    <p>
+      Started {{ timer['started_at']|replace('T', ' ') }} UTC —
+      <strong>{{ hours_fmt(timer_hours) }} hours</strong> so far{% if timer['title'] %}, on “{{ timer['title'] }}”{% endif %}.
+    </p>
+    <div class="btn-row">
+      <form method="post" action="/timer/stop">
+        {{ csrf(csrf_token, csrf_field) }}
+        <button class="btn btn-primary" type="submit">{{ icon('stop') }}Stop and log it</button>
+      </form>
+      <form method="post" action="/timer/cancel">
+        {{ csrf(csrf_token, csrf_field) }}
+        <button class="btn btn-danger" type="submit">Discard</button>
+      </form>
+    </div>
+  {% else %}
+    <form method="post" action="/timer/start" class="inline-form">
+      {{ csrf(csrf_token, csrf_field) }}
+      <div class="field">
+        <label for="t-title">What are you working on?</label>
+        <input type="text" id="t-title" name="title" placeholder="Match-drill the left spar" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="t-kit">Kit</label>
+        <select id="t-kit" name="kit_id">
+          <option value="">—</option>
+          {% for kit in all_kits %}<option value="{{ kit['id'] }}">{{ kit['name'] }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-primary" type="submit">{{ icon('play') }}Start timer</button>
+    </form>
+    <p class="field-hint">Or log hours after the fact from the build log.</p>
+  {% endif %}
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>Hours by month</h2><span class="muted small">last 6 months</span></div>
+    {{ hours_chart|safe }}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Kit completion</h2><a class="small" href="/kits">manage</a></div>
+    {{ kit_chart|safe }}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Kits</h2>
+    <a class="small" href="/kits">update percentages</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Kit</th><th class="bar-cell">Progress</th><th class="num">Hours</th>
+          <th class="num">Sections</th><th class="num">Spent</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for kit in kits %}
+        <tr>
+          <td><strong>{{ kit['name'] }}</strong></td>
+          <td class="bar-cell">
+            <div class="bar-label"><span>{{ kit['percent'] }}%</span></div>
+            <progress class="{{ 'done' if kit['percent'] >= 100 else '' }}" value="{{ kit['percent'] }}" max="100">{{ kit['percent'] }}%</progress>
+          </td>
+          <td class="num">{{ hours_fmt(kit['hours']) }}</td>
+          <td class="num">{{ kit['sections_done'] }}/{{ kit['sections_total'] }}</td>
+          <td class="num">{{ money(kit['spent_cents']) }}</td>
+          <td>{{ statusbadge(kit['status']) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="muted">No kits yet. Add them on the Kits page.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>Recent work</h2><a class="small" href="/log">all entries</a></div>
+    <div class="stack">
+      {% for entry in recent %}
+      <div class="row-item">
+        <div>
+          <strong><a href="/log/{{ entry['id'] }}">{{ entry['title'] }}</a></strong>
+          <div class="meta">
+            {{ entry['work_date'] }}
+            {%- if entry['kit_name'] %} · {{ entry['kit_name'] }}{% endif %}
+            {%- if entry['section_name'] %} · {{ entry['section_name'] }}{% endif %}
+            {%- if entry['photo_count'] %} · {{ entry['photo_count'] }} photo{{ '' if entry['photo_count'] == 1 else 's' }}{% endif %}
+          </div>
+        </div>
+        <span class="badge">{{ hours_fmt(entry['hours']) }} h</span>
+      </div>
+      {% else %}
+      <p class="muted">Nothing logged yet. <a href="/log/new">Add the first entry.</a></p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>Parts received</h2><a class="small" href="/inventory">inventory</a></div>
+    {% if inv['total'] %}
+      <p><strong>{{ inv['received'] }} of {{ inv['total'] }}</strong> lines received ({{ inv['percent'] }}%).</p>
+      {{ inv['meter']|safe }}
+      <div class="legend">
+        <span><i class="dot dot-ok"></i>Received {{ inv['counts']['received'] }}</span>
+        <span><i class="dot dot-warn"></i>Partial {{ inv['counts']['partial'] }}</span>
+        <span><i class="dot dot-idle"></i>Pending {{ inv['counts']['pending'] }}</span>
+        <span><i class="dot dot-bad"></i>Missing {{ inv['counts']['missing'] + inv['counts']['damaged'] }}</span>
+      </div>
+    {% else %}
+      <p class="muted">No parts logged. <a href="/inventory">Add a packing list.</a></p>
+    {% endif %}
+  </div>
+</div>
+
+{% if latest_photos %}
+<div class="card">
+  <div class="card-head"><h2>Latest photos</h2><a class="small" href="/photos">all photos</a></div>
+  <div class="gallery">
+    {% for photo in latest_photos %}
+    <a class="shot" href="/photos/{{ photo['id'] }}">
+      <img src="/thumbs/{{ photo['stored_name'] }}" alt="{{ photo['caption'] or photo['original_name'] }}" loading="lazy">
+      <span class="shot-meta">{{ photo['caption'] or photo['original_name'] }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

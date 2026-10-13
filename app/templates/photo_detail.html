@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon, csrf %}
+
+{% block subtitle %}
+<p class="subtitle">
+  {{ photo['original_name'] }} · {{ human_size(photo['size_bytes']) }}
+  {%- if photo['width'] %} · {{ photo['width'] }}×{{ photo['height'] }}{% endif %}
+  {%- if photo['entry_title'] %} · <a href="/log/{{ photo['entry_ref'] }}">{{ photo['entry_title'] }}</a>{% endif %}
+</p>
+{% endblock %}
+
+{% block actions %}
+<a class="btn" href="/photos">{{ icon('back') }}Photos</a>
+<a class="btn" href="/files/{{ photo['stored_name'] }}?download=1">{{ icon('download') }}Download</a>
+{% endblock %}
+
+{% block content %}
+
+<form method="post" action="/photos/{{ photo['id'] }}/save">
+  {{ csrf(csrf_token, csrf_field) }}
+
+  <div class="card">
+    <div class="card-head">
+      <h2>{{ icon('pin') }} Annotations</h2>
+      <button class="btn btn-sm" type="button" id="pin-toggle">Place pins</button>
+    </div>
+    <p class="field-hint" id="pin-hint" hidden>Click the photo where you want a numbered pin, then type what it points at.</p>
+
+    <div class="annotate-wrap" data-annotate>
+      <img src="/files/{{ photo['stored_name'] }}" alt="{{ photo['caption'] or photo['original_name'] }}">
+    </div>
+
+    <input type="hidden" id="pins-field" name="pins" value="{{ pins_json }}">
+    <ul class="pin-list" id="pin-list">
+      {% for pin in pins %}
+      <li><span class="pin-num">{{ pin['number'] }}</span><span>{{ pin['label'] }}</span></li>
+      {% else %}
+      <li class="muted small">No pins yet.</li>
+      {% endfor %}
+    </ul>
+    <noscript><p class="field-hint">Placing pins needs JavaScript. Captions and the entry link still work.</p></noscript>
+  </div>
+
+  <div class="card">
+    <h2>Details</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="caption">Caption</label>
+        <input type="text" id="caption" name="caption" value="{{ photo['caption'] }}" maxlength="300">
+      </div>
+      <div class="field">
+        <label for="entry_id">Log entry</label>
+        <select id="entry_id" name="entry_id">
+          <option value="">Not attached</option>
+          {% for entry in all_entries %}
+          <option value="{{ entry['id'] }}" {% if photo['entry_id'] == entry['id'] %}selected{% endif %}>
+            {{ entry['work_date'] }} — {{ entry['title'][:50] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" type="submit">{{ icon('check') }}Save photo</button>
+    </div>
+  </div>
+</form>
+
+<div class="card">
+  <h2>Delete</h2>
+  <form method="post" action="/photos/{{ photo['id'] }}/delete">
+    {{ csrf(csrf_token, csrf_field) }}
+    <p class="muted small">Removes the photo, its thumbnail and its pins.</p>
+    <button class="btn btn-danger" type="submit">{{ icon('trash') }}Delete photo</button>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/annotate.js?v={{ asset_version }}" defer></script>
+{% endblock %}
