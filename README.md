@@ -37,12 +37,15 @@ else's machine.
 
 ## Install on umbrelOS
 
+Builder Log is published in the **Hangar** community app store, alongside
+Pilot Logbook.
+
 1. Open the Umbrel App Store, then **Community App Stores** (the three dots,
    top right).
-2. Add this store:
+2. Add the store, if it is not already there:
 
    ```
-   https://github.com/patriotcryptous/builder-log-umbrel
+   https://github.com/patriotcryptous/pilot-logbook-umbrel
    ```
 
 3. Open the **Hangar** store and install **Builder Log**.
@@ -50,6 +53,22 @@ else's machine.
    number, planned hours and budget.
 
 Updates keep your data. Only uninstalling removes it.
+
+### How a release works
+
+This repository holds the source and builds the container image. The store
+listing — `hangar-builder-log/umbrel-app.yml` and its `docker-compose.yml` —
+lives in the
+[pilot-logbook-umbrel](https://github.com/patriotcryptous/pilot-logbook-umbrel)
+repository, because a community app store cannot share an id with another one.
+
+So a release takes two steps:
+
+1. Here: tag `vX.Y.Z` and push it. GitHub Actions builds
+   `ghcr.io/patriotcryptous/hangar-builder-log:X.Y.Z` for amd64 and arm64.
+2. In the store repository: bump `version` in `umbrel-app.yml` and the image
+   tag in `docker-compose.yml`, then push. Umbrel re-checks community stores
+   every few minutes, and the app then offers an update.
 
 ## Run it without Umbrel
 
